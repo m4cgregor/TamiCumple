@@ -182,8 +182,8 @@
         // --- LAYER 4: AR SCENE (React.memo) ---
         // Memoized to prevent re-rendering the WebGL context
         const ARScene = memo(({ onSceneLoaded }) => {
-            // Placeholder .mind file - USER MUST REPLACE THIS
-            const mindFileUrl = "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card-example/card.mind";
+            // Real MindAR file from assets
+            const mindFileUrl = "./assets/targets.mind";
 
             return (
                 <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none' }}>
@@ -275,17 +275,8 @@
         );
 
         // Screen B: HUD
-        const HUD = ({ foundCount, lastFoundId, onDebugFound, foundTargets }) => {
-            const [showToast, setShowToast] = useState(false);
+        const HUD = ({ foundCount, onDebugFound, foundTargets, toastMessage }) => {
             const [showTargets, setShowTargets] = useState(false);
-
-            useEffect(() => {
-                if (lastFoundId !== null) {
-                    setShowToast(true);
-                    const timer = setTimeout(() => setShowToast(false), 3000);
-                    return () => clearTimeout(timer);
-                }
-            }, [lastFoundId, foundCount]);
 
             return (
                 <div className="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between p-4">
@@ -310,13 +301,13 @@
                     </div>
 
                     {/* Loot Toast */}
-                    {showToast && (
+                    {toastMessage && (
                         <div className="self-center mb-20 animate-bounce-slow">
-                            <div className="bg-gradient-to-r from-twitch to-purple-900 text-white px-6 py-3 rounded-full border-2 border-gold shadow-[0_0_20px_rgba(255,215,0,0.5)] flex items-center gap-3">
-                                <Icon name="gem" size={24} className="text-gold" />
+                            <div className={`bg-gradient-to-r ${toastMessage.includes('ya encontrado') ? 'from-gray-700 to-gray-900' : 'from-twitch to-purple-900'} text-white px-6 py-3 rounded-full border-2 border-gold shadow-[0_0_20px_rgba(255,215,0,0.5)] flex items-center gap-3`}>
+                                <Icon name={toastMessage.includes('ya encontrado') ? 'alert-circle' : 'gem'} size={24} className="text-gold" />
                                 <div>
-                                    <div className="font-bold text-gold uppercase text-sm">¡Botín Conseguido!</div>
-                                    <div className="text-xs">+100 XP Añadido</div>
+                                    <div className="font-bold text-gold uppercase text-sm">{toastMessage}</div>
+                                    {!toastMessage.includes('ya encontrado') && <div className="text-xs">+100 XP Añadido</div>}
                                 </div>
                             </div>
                         </div>
@@ -379,16 +370,25 @@
                                                             : 'bg-purple-900/40 border-twitch hover:border-gold hover:bg-purple-900/60'
                                                         }`}
                                                 >
-                                                    {/* Placeholder Image/Icon */}
-                                                    <div className="text-2xl font-bold mb-1 text-white/80">#{index + 1}</div>
+                                                    {/* Target Image */}
+                                                    <img
+                                                        src={`./assets/Target_${index + 1}.png`}
+                                                        alt={`Objetivo ${index + 1}`}
+                                                        className="absolute inset-0 w-full h-full object-cover opacity-60"
+                                                    />
+
+                                                    {/* Number Overlay */}
+                                                    <div className="absolute top-1 left-1 bg-black/50 px-1.5 rounded text-xs font-bold">#{index + 1}</div>
 
                                                     {/* Status Indicator */}
                                                     {isFound ? (
-                                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                                                            <Icon name="check-circle" size={32} className="text-green-400" />
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
+                                                            <Icon name="check-circle" size={32} className="text-green-400 drop-shadow-lg" />
                                                         </div>
                                                     ) : (
-                                                        <Icon name="help-circle" size={20} className="text-twitch/50" />
+                                                        <div className="absolute inset-0 flex items-center justify-center">
+                                                            <Icon name="help-circle" size={20} className="text-white/30" />
+                                                        </div>
                                                     )}
                                                 </div>
                                             );
@@ -455,15 +455,23 @@
         const App = () => {
             const [gameState, setGameState] = useState('INTRO'); // INTRO, PLAYING, WON
             const [foundTargets, setFoundTargets] = useState(new Set());
-            const [lastFoundId, setLastFoundId] = useState(null);
+            const [toastMessage, setToastMessage] = useState(null);
 
             // Listen for AR events
             useEffect(() => {
                 const handleLootFound = (event) => {
                     const { id } = event.detail;
-                    setFoundTargets(prev => {
-                        if (prev.has(id)) return prev; // Already found
 
+                    // Check if already found
+                    if (foundTargets.has(id)) {
+                        setToastMessage("¡Artefacto ya encontrado!");
+                        // Clear toast after delay
+                        setTimeout(() => setToastMessage(null), 2000);
+                        return;
+                    }
+
+                    // New discovery
+                    setFoundTargets(prev => {
                         const newSet = new Set(prev);
                         newSet.add(id);
 
@@ -474,12 +482,14 @@
 
                         return newSet;
                     });
-                    setLastFoundId(id);
+
+                    setToastMessage("¡Botín Conseguido!");
+                    setTimeout(() => setToastMessage(null), 3000);
                 };
 
                 window.addEventListener('loot-found', handleLootFound);
                 return () => window.removeEventListener('loot-found', handleLootFound);
-            }, []);
+            }, [foundTargets]); // Re-bind when foundTargets changes to ensure duplicate check works
 
             const startQuest = () => {
                 setGameState('PLAYING');
@@ -498,9 +508,12 @@
                     nextId++;
                 }
 
-                if (nextId < 9) {
-                    window.dispatchEvent(new CustomEvent('loot-found', { detail: { id: nextId } }));
+                // If all found, simulate finding the last one again to test duplicate logic
+                if (nextId >= 9) {
+                    nextId = 8;
                 }
+
+                window.dispatchEvent(new CustomEvent('loot-found', { detail: { id: nextId } }));
             };
 
             return (
@@ -515,9 +528,9 @@
                     {gameState === 'PLAYING' && (
                         <HUD
                             foundCount={foundTargets.size}
-                            lastFoundId={lastFoundId}
                             onDebugFound={handleDebugFound}
                             foundTargets={foundTargets}
+                            toastMessage={toastMessage}
                         />
                     )}
 
