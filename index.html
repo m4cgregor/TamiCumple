@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tamara's Lvl 22 Quest</title>
+
+    <!-- LAYER 1: INFRASTRUCTURE -->
+    <!-- A-Frame & MindAR -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        twitch: '#9146FF',
+                        gold: '#FFD700',
+                        dark: '#0e0e10',
+                        darker: '#18181b',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Roboto Mono', 'monospace'],
+                    },
+                    animation: {
+                        'spin-slow': 'spin 3s linear infinite',
+                        'bounce-slow': 'bounce 2s infinite',
+                        'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0e0e10;
+            color: white;
+            font-family: 'Inter', sans-serif;
+        }
+
+        #root {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* Allow pointer events on UI elements */
+        .pointer-events-auto {
+            pointer-events: auto;
+        }
+
+        /* Custom Scrollbar for Quest Board */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #18181b;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #9146FF;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #772ce8;
+        }
+
+        /* Confetti Animation */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #FFD700;
+            animation: confetti-fall 3s linear infinite;
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(-10vh) rotate(0deg);
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateY(110vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* MindAR Video Fix */
+        video {
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            min-width: 100% !important;
+            min-height: 100% !important;
+            width: auto !important;
+            height: auto !important;
+            object-fit: cover !important;
+            z-index: -1 !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- LAYER 2: THE BRIDGE -->
+    <script>
+        // Register custom A-Frame component to listen for MindAR events
+        AFRAME.registerComponent('loot-listener', {
+            schema: {
+                targetId: { type: 'number', default: 0 }
+            },
+            init: function () {
+                const el = this.el;
+                const targetId = this.data.targetId;
+
+                el.addEventListener('targetFound', () => {
+                    console.log(`Target ${targetId} Found`);
+                    // Dispatch event to React
+                    window.dispatchEvent(new CustomEvent('loot-found', { detail: { id: targetId } }));
+
+                    // Visual feedback in AR scene (optional direct manipulation, but we'll rely on React state or static A-Frame anims)
+                    el.setAttribute('visible', true);
+                });
+
+                el.addEventListener('targetLost', () => {
+                    console.log(`Target ${targetId} Lost`);
+                    // Optional: hide if needed, but usually we want it to stay visible or handle via React
+                });
+            }
+        });
+    </script>
+
+    <!-- React Root -->
+    <div id="root"></div>
+
+    <!-- LAYER 3, 4, 5: REACT LOGIC, AR SCENE, UI OVERLAY -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, memo } = React;
+
+        // --- ICONS ---
+        const Icon = ({ name, size = 24, className }) => {
+            useEffect(() => {
+                lucide.createIcons();
+            }, [name]);
+            return <i data-lucide={name} width={size} height={size} className={className}></i>;
+        };
+
+        // --- LAYER 4: AR SCENE (React.memo) ---
+        // Memoized to prevent re-rendering the WebGL context
+        const ARScene = memo(({ onSceneLoaded }) => {
+            // Placeholder .mind file - USER MUST REPLACE THIS
+            const mindFileUrl = "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card-example/card.mind";
+
+            return (
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none' }}>
+                    <a-scene
+                        mindar-image={`imageTargetSrc: ${mindFileUrl}; autoStart: false; uiLoading: no; uiError: no; uiScanning: no;`}
+                        color-space="sRGB"
+                        renderer="colorManagement: true, physicallyCorrectLights"
+                        vr-mode-ui="enabled: false"
+                        device-orientation-permission-ui="enabled: false"
+                        embedded
+                    >
+                        <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+                        {/* 10 Targets (0-9) */}
+                        {Array.from({ length: 10 }).map((_, index) => (
+                            <a-entity key={index} mindar-image-target={`targetIndex: ${index}`} loot-listener={`targetId: ${index}`}>
+                                {/* Spinning D20 Dice Representation (Icosahedron) */}
+                                <a-entity animation="property: rotation; to: 0 360 0; loop: true; dur: 3000; easing: linear">
+                                    <a-icosahedron
+                                        radius="0.5"
+                                        color="#9146FF"
+                                        material="opacity: 0.9; metalness: 0.8; roughness: 0.2"
+                                        position="0 0 0"
+                                    >
+                                        {/* Wireframe overlay for 'tech' look */}
+                                        <a-icosahedron
+                                            radius="0.51"
+                                            material="wireframe: true; color: #FFD700"
+                                        ></a-icosahedron>
+                                    </a-icosahedron>
+                                </a-entity>
+
+                                {/* Floating +XP Text */}
+                                <a-text
+                                    value="+100 XP"
+                                    color="#FFD700"
+                                    align="center"
+                                    position="0 0.8 0"
+                                    scale="1.5 1.5 1.5"
+                                    animation="property: position; to: 0 1.2 0; dir: alternate; loop: true; dur: 1000"
+                                ></a-text>
+                            </a-entity>
+                        ))}
+                    </a-scene>
+                </div>
+            );
+        });
+
+        // --- LAYER 5: UI COMPONENTS ---
+
+        // Screen A: Quest Giver
+        const QuestGiver = ({ onAccept }) => (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-darker/95 p-4 pointer-events-auto">
+                <div className="max-w-md w-full bg-dark border-2 border-twitch rounded-lg shadow-[0_0_20px_rgba(145,70,255,0.5)] p-6 text-center relative overflow-hidden">
+                    {/* Decorative Corner Accents */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-gold"></div>
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-gold"></div>
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-gold"></div>
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-gold"></div>
+
+                    <h1 className="text-3xl font-bold text-twitch mb-2 drop-shadow-md">MISIÓN DISPONIBLE</h1>
+                    <div className="h-1 w-full bg-gradient-to-r from-transparent via-gold to-transparent mb-6"></div>
+
+                    <div className="mb-6">
+                        <h2 className="text-xl text-white font-mono mb-2">Celebración del Nivel 22 de Tamara</h2>
+                        <p className="text-gray-300">
+                            ¡Aventurero! Tamara está subiendo de nivel. Tu misión es encontrar los 10 artefactos ocultos esparcidos por el reino.
+                        </p>
+                    </div>
+
+                    <div className="bg-black/50 p-4 rounded border border-gray-700 mb-8 text-left">
+                        <h3 className="text-gold text-sm font-bold uppercase mb-2">Objetivos:</h3>
+                        <ul className="text-sm text-gray-400 space-y-1">
+                            <li className="flex items-center"><span className="text-twitch mr-2">●</span> Encuentra 10 Objetivos Ocultos</li>
+                            <li className="flex items-center"><span className="text-twitch mr-2">●</span> Recoge XP</li>
+                            <li className="flex items-center"><span className="text-twitch mr-2">●</span> Desbloquea la Sorpresa de Victoria</li>
+                        </ul>
+                    </div>
+
+                    <button
+                        onClick={onAccept}
+                        className="w-full bg-twitch hover:bg-purple-700 text-white font-bold py-3 px-6 rounded shadow-[0_0_15px_rgba(145,70,255,0.6)] transition-all transform hover:scale-105 flex items-center justify-center gap-2"
+                    >
+                        <span>ACEPTAR MISIÓN</span>
+                        <Icon name="sword" size={20} />
+                    </button>
+                </div>
+            </div>
+        );
+
+        // Screen B: HUD
+        const HUD = ({ foundCount, lastFoundId, onDebugFound }) => {
+            const [showToast, setShowToast] = useState(false);
+
+            useEffect(() => {
+                if (lastFoundId !== null) {
+                    setShowToast(true);
+                    const timer = setTimeout(() => setShowToast(false), 3000);
+                    return () => clearTimeout(timer);
+                }
+            }, [lastFoundId, foundCount]);
+
+            return (
+                <div className="absolute inset-0 z-40 pointer-events-none flex flex-col justify-between p-4">
+                    {/* Top Bar */}
+                    <div className="flex justify-between items-start">
+                        <div className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1 animate-pulse">
+                            <div className="w-2 h-2 bg-white rounded-full"></div>
+                            EVENTO EN VIVO
+                        </div>
+
+                        <div className="bg-dark/80 border border-twitch rounded-lg p-2 flex items-center gap-3 backdrop-blur-sm">
+                            <div className="text-right">
+                                <div className="text-xs text-gray-400 uppercase">XP Nivel 22</div>
+                                <div className="text-xl font-mono font-bold text-gold leading-none">
+                                    {foundCount} <span className="text-sm text-gray-500">/ 10</span>
+                                </div>
+                            </div>
+                            <div className="w-10 h-10 bg-twitch rounded-full flex items-center justify-center border-2 border-gold shadow-lg">
+                                <Icon name="dices" size={24} className="text-white" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Loot Toast */}
+                    {showToast && (
+                        <div className="self-center mb-20 animate-bounce-slow">
+                            <div className="bg-gradient-to-r from-twitch to-purple-900 text-white px-6 py-3 rounded-full border-2 border-gold shadow-[0_0_20px_rgba(255,215,0,0.5)] flex items-center gap-3">
+                                <Icon name="gem" size={24} className="text-gold" />
+                                <div>
+                                    <div className="font-bold text-gold uppercase text-sm">¡Botín Conseguido!</div>
+                                    <div className="text-xs">+100 XP Añadido</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Bottom Bar / Instructions */}
+                    <div className="text-center relative pointer-events-auto">
+                        <div className="inline-block bg-black/60 backdrop-blur text-white text-xs px-4 py-2 rounded-full border border-white/10 mb-2">
+                            Escanea los artefactos ocultos para recogerlos
+                        </div>
+
+                        {/* Debug Button */}
+                        <div className="opacity-50 hover:opacity-100 transition-opacity">
+                            <button
+                                onClick={onDebugFound}
+                                className="bg-red-500/20 hover:bg-red-500/50 text-red-200 text-[10px] px-2 py-1 rounded border border-red-500/30"
+                            >
+                                [DEBUG] Encontrar Item
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Screen C: Victory
+        const Victory = () => {
+            // Generate confetti particles
+            const particles = useMemo(() => Array.from({ length: 50 }).map((_, i) => ({
+                id: i,
+                left: Math.random() * 100 + '%',
+                delay: Math.random() * 2 + 's',
+                bg: ['#FFD700', '#9146FF', '#FFFFFF'][Math.floor(Math.random() * 3)]
+            })), []);
+
+            return (
+                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-twitch/90 pointer-events-auto overflow-hidden">
+                    {/* Confetti */}
+                    {particles.map(p => (
+                        <div
+                            key={p.id}
+                            className="confetti"
+                            style={{
+                                left: p.left,
+                                animationDelay: p.delay,
+                                backgroundColor: p.bg
+                            }}
+                        ></div>
+                    ))}
+
+                    <div className="relative z-10 text-center p-6 animate-bounce-slow">
+                        <h1 className="text-6xl font-black text-gold drop-shadow-[0_4px_0_rgba(0,0,0,0.5)] mb-4 tracking-tighter">
+                            ¡SUBIDA DE NIVEL!
+                        </h1>
+                        <div className="text-4xl font-bold text-white mb-8 drop-shadow-md">
+                            NIVEL 22 ALCANZADO
+                        </div>
+
+                        <div className="bg-white/10 backdrop-blur-md p-6 rounded-xl border border-white/20 max-w-sm mx-auto">
+                            <p className="text-xl text-white font-medium mb-2">¡Feliz Cumpleaños Tamara!</p>
+                            <p className="text-sm text-purple-200">
+                                Has completado la misión con éxito. ¡Que tu año esté lleno de golpes críticos y botín épico!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- LAYER 3: APP LOGIC ---
+        const App = () => {
+            const [gameState, setGameState] = useState('INTRO'); // INTRO, PLAYING, WON
+            const [foundTargets, setFoundTargets] = useState(new Set());
+            const [lastFoundId, setLastFoundId] = useState(null);
+
+            // Listen for AR events
+            useEffect(() => {
+                const handleLootFound = (event) => {
+                    const { id } = event.detail;
+                    setFoundTargets(prev => {
+                        if (prev.has(id)) return prev; // Already found
+
+                        const newSet = new Set(prev);
+                        newSet.add(id);
+
+                        // Check win condition
+                        if (newSet.size >= 10) {
+                            setTimeout(() => setGameState('WON'), 1500); // Delay for effect
+                        }
+
+                        return newSet;
+                    });
+                    setLastFoundId(id);
+                };
+
+                window.addEventListener('loot-found', handleLootFound);
+                return () => window.removeEventListener('loot-found', handleLootFound);
+            }, []);
+
+            const startQuest = () => {
+                setGameState('PLAYING');
+                // Start MindAR engine
+                const sceneEl = document.querySelector('a-scene');
+                if (sceneEl && sceneEl.systems['mindar-image-system']) {
+                    sceneEl.systems['mindar-image-system'].start();
+                }
+            };
+
+            // Debug function to simulate finding a target
+            const handleDebugFound = () => {
+                // Find first missing ID
+                let nextId = 0;
+                while (foundTargets.has(nextId) && nextId < 10) {
+                    nextId++;
+                }
+
+                if (nextId < 10) {
+                    window.dispatchEvent(new CustomEvent('loot-found', { detail: { id: nextId } }));
+                }
+            };
+
+            return (
+                <>
+                    {/* AR Layer - Always rendered but hidden by UI in INTRO/WON if needed, 
+                        but we keep it active for seamless transition or background effect */}
+                    <ARScene />
+
+                    {/* UI Layer */}
+                    {gameState === 'INTRO' && <QuestGiver onAccept={startQuest} />}
+
+                    {gameState === 'PLAYING' && (
+                        <HUD
+                            foundCount={foundTargets.size}
+                            lastFoundId={lastFoundId}
+                            onDebugFound={handleDebugFound}
+                        />
+                    )}
+
+                    {gameState === 'WON' && <Victory />}
+                </>
+            );
+        };
+
+        // Mount React
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>
