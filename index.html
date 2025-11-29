@@ -59,7 +59,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #0e0e10;
+            background-color: transparent;
             color: white;
             font-family: 'Inter', sans-serif;
         }
@@ -275,7 +275,7 @@
         );
 
         // Screen B: HUD
-        const HUD = ({ foundCount, onDebugFound, foundTargets, toastMessage }) => {
+        const HUD = ({ foundCount, foundTargets, toastMessage }) => {
             const [showTargets, setShowTargets] = useState(false);
             const [previewImageIndex, setPreviewImageIndex] = useState(null);
 
@@ -328,16 +328,6 @@
                             <Icon name="scroll" size={16} />
                             <span>Ver Objetivos</span>
                         </button>
-
-                        {/* Debug Button */}
-                        <div className="opacity-50 hover:opacity-100 transition-opacity">
-                            <button
-                                onClick={onDebugFound}
-                                className="bg-red-500/20 hover:bg-red-500/50 text-red-200 text-[10px] px-2 py-1 rounded border border-red-500/30"
-                            >
-                                [DEBUG] Encontrar Item
-                            </button>
-                        </div>
                     </div>
 
                     {/* Target List Modal */}
@@ -544,22 +534,6 @@
                 }
             };
 
-            // Debug function to simulate finding a target
-            const handleDebugFound = () => {
-                // Find first missing ID
-                let nextId = 0;
-                while (foundTargets.has(nextId) && nextId < 9) {
-                    nextId++;
-                }
-
-                // If all found, simulate finding the last one again to test duplicate logic
-                if (nextId >= 9) {
-                    nextId = 8;
-                }
-
-                window.dispatchEvent(new CustomEvent('loot-found', { detail: { id: nextId } }));
-            };
-
             return (
                 <>
                     {/* AR Layer - Always rendered but hidden by UI in INTRO/WON if needed, 
@@ -572,7 +546,6 @@
                     {gameState === 'PLAYING' && (
                         <HUD
                             foundCount={foundTargets.size}
-                            onDebugFound={handleDebugFound}
                             foundTargets={foundTargets}
                             toastMessage={toastMessage}
                         />
